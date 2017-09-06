@@ -1,7 +1,14 @@
 package com.xoptov.linbo;
 
-import java.sql.*;
-import java.util.*;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.DriverManager;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.Vector;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Properties;
 import java.io.FileReader;
 import java.io.IOException;
 import org.apache.commons.cli.Options;
