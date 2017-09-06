@@ -1,12 +1,9 @@
 package com.xoptov.linbo;
 
 import java.sql.*;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.*;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.Properties;
-
 import org.apache.commons.cli.Options;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
@@ -192,59 +189,100 @@ public class App
 
     private static void createManufacturers(Connection conn)
     {
+        Vector<Integer> ids = new Vector<>();
 
-        App.manufacturers.forEach((Integer i, Manufacturer m) -> {
-            if (m.getId() == 0) {
-                try (PreparedStatement pstmt = conn.prepareStatement("INSERT INTO value(as_string) VALUES(?)", PreparedStatement.RETURN_GENERATED_KEYS)) {
+        try (PreparedStatement pstmt = conn.prepareStatement("INSERT INTO value(as_string) VALUES(?)", PreparedStatement.RETURN_GENERATED_KEYS)) {
+            App.manufacturers.forEach((Integer i, Manufacturer m) -> {
+                if (m.getId() != 0) return;
+                try {
                     pstmt.setString(1, m.getName());
-                    pstmt.executeUpdate();
-                    ResultSet rs = pstmt.getGeneratedKeys();
-                    if (rs.first()) {
-                        m.setId(rs.getInt(1));
-                    }
-                    rs.close();
+                    pstmt.addBatch();
                 } catch (SQLException e) {
                     System.out.println(e.getMessage());
                 }
+            });
+            pstmt.executeBatch();
 
-                try (PreparedStatement pstmt = conn.prepareStatement("INSERT INTO property_value(category_id, property_id, value_id) VALUES(?,?,?)")) {
-                    pstmt.setInt(1, App.category);
-                    pstmt.setInt(2, App.manufacturer);
-                    pstmt.setInt(3, m.getId());
-                    pstmt.executeUpdate();
+            ResultSet rs = pstmt.getGeneratedKeys();
+            App.manufacturers.forEach((Integer i, Manufacturer m) -> {
+                if (m.getId() != 0) return;
+                try {
+                    if (rs.next()) {
+                        m.setId(rs.getInt(1));
+                        ids.add(rs.getInt(1));
+                    }
                 } catch (SQLException e) {
                     System.out.println(e.getMessage());
                 }
+            });
+            rs.close();
+
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
+
+        if (!ids.isEmpty()) {
+            try (PreparedStatement pstmt = conn.prepareStatement("INSERT INTO property_value(category_id, property_id, value_id) VALUES(?,?,?)")) {
+                ids.forEach(id -> {
+                    try {
+                        pstmt.setInt(1, App.category);
+                        pstmt.setInt(2, App.manufacturer);
+                        pstmt.setInt(3, id);
+                        pstmt.addBatch();
+                    } catch (SQLException e) {
+                        System.out.println(e.getMessage());
+                    }
+                });
+                pstmt.executeBatch();
+            } catch (SQLException e) {
+                System.out.println(e.getMessage());
             }
-        });
+        }
     }
 
     private static void createModels(Connection conn)
     {
-        App.models.forEach((Model m) -> {
-            try (PreparedStatement pstmt = conn.prepareStatement("INSERT INTO value(as_string, parent_id) VALUES(?, ?)", PreparedStatement.RETURN_GENERATED_KEYS)) {
-                pstmt.setString(1, m.getName());
-                pstmt.setInt(2, m.getManufacturer().getId());
-                pstmt.executeUpdate();
+        Vector<Integer>ids = new Vector<>();
+
+        if (!App.models.isEmpty()) {
+            try (PreparedStatement pstmt = conn.prepareStatement("INSERT INTO value(as_string, parent_id) VALUES(?,?)", PreparedStatement.RETURN_GENERATED_KEYS)) {
+                App.models.forEach((Model m) -> {
+                    try {
+                        pstmt.setString(1, m.getName());
+                        pstmt.setInt(2, m.getManufacturer().getId());
+                        pstmt.addBatch();
+                    } catch (SQLException e) {
+                        System.out.println(e.getMessage());
+                    }
+                });
+                pstmt.executeBatch();
 
                 ResultSet rs = pstmt.getGeneratedKeys();
-                if (rs.first()) {
-                    m.setId(rs.getInt(1));
+                while (rs.next()) {
+                    ids.add(rs.getInt(1));
                 }
                 rs.close();
             } catch (SQLException e) {
                 System.out.println(e.getMessage());
             }
+        }
 
-            try (PreparedStatement pstmt = conn.prepareStatement("INSERT INTO property_value(category_id, property_id, value_id) VALUES(?, ?, ?)")) {
-                pstmt.setInt(1, App.category);
-                pstmt.setInt(2, App.model);
-                pstmt.setInt(3, m.getId());
-                pstmt.executeUpdate();
-
+        if (!ids.isEmpty()) {
+            try (PreparedStatement pstmt = conn.prepareStatement("INSERT INTO property_value(category_id, property_id, value_id) VALUES(?,?,?)")) {
+                ids.forEach(id -> {
+                    try {
+                        pstmt.setInt(1, App.category);
+                        pstmt.setInt(2, App.model);
+                        pstmt.setInt(3, id);
+                        pstmt.addBatch();
+                    } catch (SQLException e) {
+                        System.out.println(e.getMessage());
+                    }
+                });
+                pstmt.executeBatch();
             } catch (SQLException e) {
                 System.out.println(e.getMessage());
             }
-        });
+        }
     }
 }
